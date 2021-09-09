@@ -19,6 +19,11 @@ with open("sca-results.json", "r") as r:
                 else:
                     cve = "No CVE found"
                 
+                #Upgrade version text for the report based on inputs.
+                if issue['libraries'][0]['details'][0]['updateToVersion'] != None:
+                    updateVersion = "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + "."
+                else:
+                    updateVersion = "Unknown"
                 
                 #Translate the CVSS score to Gitlabs severity.
                 if float(issue['cvssScore']) == 0.0:
@@ -35,7 +40,6 @@ with open("sca-results.json", "r") as r:
                 #Map the vulnerability to the library
                 ref = issue['libraries'][0]['_links']['ref']
                 new_ref = ref.split('/')
-                record = 0 
                 library = int(new_ref[4])
                 versions = new_ref[6]
 
@@ -55,37 +59,37 @@ with open("sca-results.json", "r") as r:
                     "location": {
                         "file": "",
                         "dependency": {
-                        "package": {
-                            "name": findings['libraries'][library]['coordinate1'] + ":" + findings['libraries'][library]['coordinate2']
-                        },
-                        "version": findings['libraries'][library]['versions'][0]['version']
+                            "package": {
+                                "name": findings['libraries'][library]['coordinate1'] + ":" + findings['libraries'][library]['coordinate2']
+                            },
+                            "version": findings['libraries'][library]['versions'][0]['version']
                         }
                     },
                     "identifiers": [
                         {
-                        "type": "Veracode Agent Based SCA",
-                        "name": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + issue['libraries'][0]['details'][0]['versionRange'] + ' - ' + cve,
-                        "value": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + issue['libraries'][0]['details'][0]['versionRange'] + ' - ' + cve,
-                        "url": findings['libraries'][library]['bugTrackerUrl']
+                            "type": "Veracode Agent Based SCA",
+                            "name": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + issue['libraries'][0]['details'][0]['versionRange'] + ' - ' + cve,
+                            "value": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + issue['libraries'][0]['details'][0]['versionRange'] + ' - ' + cve,
+                            "url": findings['libraries'][library]['bugTrackerUrl']
                         }
                     ],
                     "links": [
                         {
-                        "url": issue['libraries'][0]['details'][0]['patch']
+                            "url": issue['libraries'][0]['details'][0]['patch']
                         },
                         {
-                        "url": issue['_links']['html']
+                            "url": issue['_links']['html']
                         }
                     ],
                     "remediations": [
                         {
-                        "fixes": [
-                            {
-                            "id": findings['libraries'][library]['versions'][0]['sha1'],
-                            }
-                        ],
-                        "summary": "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + ".",
-                        "diff": ""
+                            "fixes": [
+                                {
+                                    "id": findings['libraries'][library]['versions'][0]['sha1'],
+                                }
+                            ],
+                            "summary": "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + ".",
+                            "diff": ""
                         }
                     ]
                 }) 
