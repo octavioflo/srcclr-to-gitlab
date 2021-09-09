@@ -51,7 +51,7 @@ with open("sca-results.json", "r") as r:
                     "message": issue['title'] + " in " + findings['libraries'][library]['name'],
                     "description": cve + ". " + issue['overview'],
                     "severity": severity,
-                    "solution": "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + ".",
+                    "solution": updateVersion,
                     "scanner": {
                         "id": "srcclr",
                         "name": "SourceClear"
@@ -88,7 +88,7 @@ with open("sca-results.json", "r") as r:
                                     "id": findings['libraries'][library]['versions'][0]['sha1'],
                                 }
                             ],
-                            "summary": "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + ".",
+                            "summary": updateVersion,
                             "diff": ""
                         }
                     ]
