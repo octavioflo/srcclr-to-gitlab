@@ -2,7 +2,8 @@ import json
 
 gl_results = {
     "version": "2.0",
-    "vulnerabilities": []
+    "vulnerabilities": [],
+    "remediations": []
 }
 
 with open("sca-results.json", "r") as r:
@@ -80,19 +81,18 @@ with open("sca-results.json", "r") as r:
                         {
                             "url": issue['_links']['html']
                         }
-                    ],
-                    "remediations": [
-                        {
-                            "fixes": [
-                                {
-                                    "id": findings['libraries'][library]['versions'][0]['sha1'],
-                                }
-                            ],
-                            "summary": updateVersion,
-                            "diff": ""
-                        }
                     ]
-                }) 
+                })
+                #Add remediations
+                gl_results["remediations"].append({
+                    "fixes": [
+                        {
+                            "id": findings['libraries'][library]['versions'][0]['sha1'],
+                        }
+                    ],
+                    "summary": updateVersion,
+                    "diff": ""
+                })
         else: 
             print("There are no vulnerabilities")   
 
