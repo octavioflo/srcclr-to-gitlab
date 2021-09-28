@@ -20,15 +20,9 @@ with open("sca-results.json", "r") as r:
                 else:
                     cve = "No CVE found"
                 
-                #Upgrade version text for the report based on inputs.
-                if issue['libraries'][0]['details'][0]['updateToVersion'] != None:
-                    updateVersion = "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + "."
-                else:
-                    updateVersion = "Unknown"
-                
                 #Translate the CVSS score to Gitlabs severity.
                 if float(issue['cvssScore']) == 0.0:
-                    severity = "Informational"
+                    severity = "Info"
                 elif float(issue['cvssScore']) >= 0.1 and  float(issue['cvssScore']) < 4.0:
                     severity = "Low"
                 elif float(issue['cvssScore']) >= 4.0 and  float(issue['cvssScore']) < 7.0:
@@ -38,11 +32,28 @@ with open("sca-results.json", "r") as r:
                 elif float(issue['cvssScore']) >= 9.0:
                     severity = "Critical"
 
-                #Map the vulnerability to the library
-                ref = issue['libraries'][0]['_links']['ref']
-                new_ref = ref.split('/')
-                library = int(new_ref[4])
-                versions = new_ref[6]
+                if len(issue['libraries']) != 0:
+                    #Map the vulnerability to the library
+                    ref = issue['libraries'][0]['_links']['ref']
+                    new_ref = ref.split('/')
+                    library = int(new_ref[4]) - 1
+                    
+                    #Assign variables that would've been in library
+                    versionRange = issue['libraries'][0]['details'][0]['versionRange']
+                    patchUrl = issue['libraries'][0]['details'][0]['patch']
+                    refUrl = issue['_links']['html']
+                    
+                    #Upgrade version text for the report based on inputs.
+                    if issue['libraries'][0]['details'][0]['updateToVersion'] != None:
+                        updateVersion = "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + "."
+                    else:
+                        updateVersion = "Unknown"
+                else:
+                    #Defaults if no Library information is available.
+                    versionRange = 'Version Range Not Available'
+                    patchUrl = 'https://www.sourceclear.com'
+                    refUrl = 'https://www.sourceclear.com'
+
 
                 #Add the results to new JSON format
                 gl_results["vulnerabilities"].append({
@@ -69,17 +80,17 @@ with open("sca-results.json", "r") as r:
                     "identifiers": [
                         {
                             "type": "Veracode Agent Based SCA",
-                            "name": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + issue['libraries'][0]['details'][0]['versionRange'] + ' - ' + cve,
-                            "value": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + issue['libraries'][0]['details'][0]['versionRange'] + ' - ' + cve,
+                            "name": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + versionRange + ' - ' + cve,
+                            "value": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + versionRange + ' - ' + cve,
                             "url": findings['libraries'][library]['bugTrackerUrl']
                         }
                     ],
                     "links": [
                         {
-                            "url": issue['libraries'][0]['details'][0]['patch']
+                            "url": patchUrl
                         },
                         {
-                            "url": issue['_links']['html']
+                            "url": refUrl
                         }
                     ]
                 })
@@ -91,8 +102,11 @@ with open("sca-results.json", "r") as r:
                         }
                     ],
                     "summary": updateVersion,
-                    "diff": ""
+                    "diff": "Information not available"
                 })
+
+                # Output results on the console. 
+                print("Issue found: " + issue['title'] + " in " + findings['libraries'][library]['name'])
         else: 
             print("There are no vulnerabilities")   
 
@@ -100,5 +114,4 @@ with open("srcclr-report.json", "w") as f:
     f.write(json.dumps(gl_results, indent=4))
 
 # TODO
-# Output results on the console. 
 # Output unmatched libraries to identify any possible vulnerabilities we may be missing.
