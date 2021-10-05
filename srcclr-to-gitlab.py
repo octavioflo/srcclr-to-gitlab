@@ -18,14 +18,14 @@ with open("sca-results.json", "r") as r:
         if 'graphs' in findings:
             for i in findings['graphs']:
                 #Find the package manager
-                if i['directs'][0]['coords']['coordinateType'] != None:
+                if i['directs'][0]['coords']['coordinateType'] is not None:
                     packageManager = i['directs'][0]['coords']['coordinateType']
                     pass
                 else:
                     fileName = "Package Manager not found."
                 
                 #Find filename in the report
-                if i['directs'][0]['filename'] != None:
+                if i['directs'][0]['filename'] is not None:
                     fileName = i['directs'][0]['filename']
                     break
                 else:
@@ -39,7 +39,7 @@ with open("sca-results.json", "r") as r:
             for issue in findings['vulnerabilities']:
                 
                 #Add CVE to the actual number from the report
-                if issue['cve'] != None:
+                if issue['cve'] is not None:
                     cve = "CVE-" + issue['cve']
                 else:
                     cve = "No CVE found"
@@ -66,18 +66,18 @@ with open("sca-results.json", "r") as r:
                     versionRange = issue['libraries'][0]['details'][0]['versionRange']
                     
                     #Checks there's no empty values
-                    if issue['libraries'][0]['details'][0]['patch'] != "" and issue['libraries'][0]['details'][0]['patch'] != None:
+                    if issue['libraries'][0]['details'][0]['patch'] != "" and issue['libraries'][0]['details'][0]['patch'] is not None:
                         patchUrl = issue['libraries'][0]['details'][0]['patch']
                     else: 
                         patchUrl = 'https://www.sourceclear.com'
                     
-                    if issue['_links']['html'] != "" and issue['_links']['html'] != None:
+                    if issue['_links']['html'] != "" and issue['_links']['html'] is not None:
                         refUrl = issue['_links']['html']
                     else:
                         refUrl = 'https://www.sourceclear.com'
 
                     #Upgrade version text for the report based on inputs.
-                    if issue['libraries'][0]['details'][0]['updateToVersion'] != None:
+                    if issue['libraries'][0]['details'][0]['updateToVersion'] is not None:
                         updateVersion = "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + "."
                     else:
                         updateVersion = "Unknown"
@@ -88,7 +88,7 @@ with open("sca-results.json", "r") as r:
                     refUrl = 'https://www.sourceclear.com'
                 
                 #Covers any cases where the bugTrackerUrl is null, which breaks the schema
-                if findings['libraries'][library]['bugTrackerUrl'] != None:
+                if findings['libraries'][library]['bugTrackerUrl'] is not None:
                     bugTrackerUrl = findings['libraries'][library]['bugTrackerUrl']
                 else:
                     bugTrackerUrl = 'https://www.sourceclear.com'
