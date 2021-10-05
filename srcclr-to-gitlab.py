@@ -7,6 +7,21 @@ gl_results = {
     "dependency_files": []
 }
 
+#Checks that report is not None
+def isNoneCheck(report, string):
+    if report is not None:
+        return report
+    else:
+        return string
+
+#Check that 'report' is not None or empty
+def isNoneNullCheck(report, string):
+    if report is not None and report is not "":
+        return report
+    else:
+        return string
+
+
 with open("sca-results.json", "r") as r:
     results_json = json.load(r)
     results = results_json['records']
@@ -18,18 +33,9 @@ with open("sca-results.json", "r") as r:
         if 'graphs' in findings:
             for i in findings['graphs']:
                 #Find the package manager
-                if i['directs'][0]['coords']['coordinateType'] is not None:
-                    packageManager = i['directs'][0]['coords']['coordinateType']
-                    pass
-                else:
-                    fileName = "Package Manager not found."
-                
+                packageManager = isNoneCheck(i['directs'][0]['coords']['coordinateType'], "Package Manager not found.")
                 #Find filename in the report
-                if i['directs'][0]['filename'] is not None:
-                    fileName = i['directs'][0]['filename']
-                    break
-                else:
-                    fileName = "File not found."
+                fileName = isNoneCheck(i['directs'][0]['filename'], "File not found.")
         else:
             print("No Graphs available")
 
@@ -66,21 +72,15 @@ with open("sca-results.json", "r") as r:
                     versionRange = issue['libraries'][0]['details'][0]['versionRange']
                     
                     #Checks there's no empty values
-                    if issue['libraries'][0]['details'][0]['patch'] != "" and issue['libraries'][0]['details'][0]['patch'] is not None:
-                        patchUrl = issue['libraries'][0]['details'][0]['patch']
-                    else: 
-                        patchUrl = 'https://www.sourceclear.com'
-                    
-                    if issue['_links']['html'] != "" and issue['_links']['html'] is not None:
-                        refUrl = issue['_links']['html']
-                    else:
-                        refUrl = 'https://www.sourceclear.com'
+                    patchUrl = isNoneNullCheck(issue['libraries'][0]['details'][0]['patch'], 'https://www.sourceclear.com')
+                    refUrl = isNoneNullCheck(issue['_links']['html'], 'https://www.sourceclear.com')
 
                     #Upgrade version text for the report based on inputs.
                     if issue['libraries'][0]['details'][0]['updateToVersion'] is not None:
                         updateVersion = "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + "."
                     else:
                         updateVersion = "Unknown"
+                    
                 else:
                     #Defaults if no Library information is available.
                     versionRange = 'Version Range Not Available'
@@ -88,11 +88,7 @@ with open("sca-results.json", "r") as r:
                     refUrl = 'https://www.sourceclear.com'
                 
                 #Covers any cases where the bugTrackerUrl is null, which breaks the schema
-                if findings['libraries'][library]['bugTrackerUrl'] is not None:
-                    bugTrackerUrl = findings['libraries'][library]['bugTrackerUrl']
-                else:
-                    bugTrackerUrl = 'https://www.sourceclear.com'
-
+                bugTrackerUrl = isNoneCheck(findings['libraries'][library]['bugTrackerUrl'], 'https://www.sourceclear.com')
 
                 #Add the results to new JSON format
                 gl_results["vulnerabilities"].append({
