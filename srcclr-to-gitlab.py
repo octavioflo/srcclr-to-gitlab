@@ -1,7 +1,7 @@
 import json
 
 gl_results = {
-    "version": "2.0.0",
+    "version": "14.0.4",
     "vulnerabilities": [],
     "remediations": [],
     "dependency_files": []
@@ -25,7 +25,6 @@ with open("sca-results.json", "r") as r:
                     fileName = "Package Manager not found."
                 
                 #Find filename in the report
-                print(i['directs'][0]['filename'])
                 if i['directs'][0]['filename'] != None:
                     fileName = i['directs'][0]['filename']
                     break
@@ -33,10 +32,10 @@ with open("sca-results.json", "r") as r:
                     fileName = "File not found."
         else:
             print("No Graphs available")
-        
 
         #Find the vulnerabilities and build the json doc
         if 'vulnerabilities' in findings:
+            print("===== SCA SCAN HAS FOUND VULNERABILITIES =====")
             for issue in findings['vulnerabilities']:
                 
                 #Add CVE to the actual number from the report
@@ -114,7 +113,9 @@ with open("sca-results.json", "r") as r:
                             "package": {
                                 "name": findings['libraries'][library]['coordinate1'] + ":" + findings['libraries'][library]['coordinate2']
                             },
-                            "version": findings['libraries'][library]['versions'][0]['version']
+                            "version": findings['libraries'][library]['versions'][0]['version'],
+                            "iid": library,
+                            "direct": findings['libraries'][library]['versions'][0]['licenses'][0]['fromParentPom']
                         }
                     },
                     "identifiers": [
@@ -134,6 +135,7 @@ with open("sca-results.json", "r") as r:
                         }
                     ]
                 })
+
                 #Add remediations
                 gl_results["remediations"].append({
                     "fixes": [
@@ -145,6 +147,14 @@ with open("sca-results.json", "r") as r:
                     "diff": "Information not available."
                 })
 
+                # Output results on the console. 
+                print("ISSUE FOUND: " + issue['title'] + " in " + findings['libraries'][library]['name'])
+        else: 
+            print("There are no vulnerabilities")
+
+        # Adding libraries to the dependency files
+        if 'libraries' in findings:
+            for library in findings['libraries']:
                 #Add to the Dependency list
                 gl_results["dependency_files"].append({
                     "path": fileName,
@@ -152,20 +162,28 @@ with open("sca-results.json", "r") as r:
                     "dependencies": [
                         {
                             "package": {
-                                "name": findings['libraries'][library]['name']
+                                "name": library['coordinate1'] + ":" + library['coordinate2']
                             },
-                            "version": findings['libraries'][library]['versions'][0]['version']
+                            "version": library['versions'][0]['version'],
+                            "iid": findings['libraries'].index(library),
+                            "direct": library['versions'][0]['licenses'][0]['fromParentPom']
                         }
                     ]
                 })
+        else:
+            print("No libraries found")
 
-                # Output results on the console. 
-                print("Issue found: " + issue['title'] + " in " + findings['libraries'][library]['name'])
-        else: 
-            print("There are no vulnerabilities")  
+        #If there's any unmatched libraries in the report. Print those results for teams to see.
+        if 'unmatchedLibraries' in findings:
+            print("\n")
+            print("===== SCA SCAN HAS FOUND SOME UNMATCHED LIBRARIES =====")
+            print("ACTION REQUIRED: Please add a version to the following libraries to get results.")
+            for library in findings['unmatchedLibraries']:
+                print("- " + library['coordinate1'] + ":" + library['coordinate2'])
+
+        else:
+            print("No unmatched libraries identified.")
+
 
 with open("srcclr-report.json", "w") as f:
     f.write(json.dumps(gl_results, indent=4))
-
-# TODO
-# Output unmatched libraries to identify any possible vulnerabilities we may be missing.
