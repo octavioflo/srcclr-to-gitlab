@@ -39,6 +39,32 @@ with open("sca-results.json", "r") as r:
         else:
             print("No Graphs available")
 
+        # Adding libraries to the dependency files
+        if 'libraries' in findings:
+            for library in findings['libraries']:
+                if len(library['versions'][0]['licenses']) != 0:
+                    direct = library['versions'][0]['licenses'][0]['fromParentPom']
+                else:
+                    direct = False
+
+                #Add to the Dependency list
+                gl_results["dependency_files"].append({
+                    "path": fileName,
+                    "package_manager": packageManager,
+                    "dependencies": [
+                        {
+                            "package": {
+                                "name": library['coordinate1'] + ":" + library['coordinate2']
+                            },
+                            "version": library['versions'][0]['version'],
+                            "iid": findings['libraries'].index(library),
+                            "direct": direct
+                        }
+                    ]
+                })
+        else:
+            print("No libraries found")
+
         #Find the vulnerabilities and build the json doc
         if 'vulnerabilities' in findings:
             print("===== SCA SCAN HAS FOUND VULNERABILITIES =====")
@@ -111,7 +137,7 @@ with open("sca-results.json", "r") as r:
                             },
                             "version": findings['libraries'][library]['versions'][0]['version'],
                             "iid": library,
-                            "direct": findings['libraries'][library]['versions'][0]['licenses'][0]['fromParentPom']
+                            "direct": direct
                         }
                     },
                     "identifiers": [
@@ -148,26 +174,6 @@ with open("sca-results.json", "r") as r:
         else: 
             print("There are no vulnerabilities")
 
-        # Adding libraries to the dependency files
-        if 'libraries' in findings:
-            for library in findings['libraries']:
-                #Add to the Dependency list
-                gl_results["dependency_files"].append({
-                    "path": fileName,
-                    "package_manager": packageManager,
-                    "dependencies": [
-                        {
-                            "package": {
-                                "name": library['coordinate1'] + ":" + library['coordinate2']
-                            },
-                            "version": library['versions'][0]['version'],
-                            "iid": findings['libraries'].index(library),
-                            "direct": library['versions'][0]['licenses'][0]['fromParentPom']
-                        }
-                    ]
-                })
-        else:
-            print("No libraries found")
 
         #If there's any unmatched libraries in the report. Print those results for teams to see.
         if 'unmatchedLibraries' in findings:
