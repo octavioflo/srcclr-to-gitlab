@@ -1,5 +1,7 @@
 import json
 
+# Builds a shell of the Gitlab report
+# TODO: add link to the report schema
 gl_results = {
     "version": "14.0.4",
     "vulnerabilities": [],
@@ -7,185 +9,213 @@ gl_results = {
     "dependency_files": []
 }
 
-#Checks that report is not None
-def isNoneCheck(report, string):
-    if report is not None:
+# Check that 'report' is not None or empty
+def is_none_or_null_check(report, string) -> str:
+    if report is not None and report != "":
         return report
     else:
         return string
 
-#Check that 'report' is not None or empty
-def isNoneNullCheck(report, string):
-    if report is not None and report is not "":
-        return report
-    else:
-        return string
+# Takes the cvss score from the veracode report, then converts that 
+# More generic severity level that Gitlab consumes
+def severity_level(cvss_score) -> str:
+    if float(cvss_score) == 0.0:
+        severity = "Info"
+    elif float(cvss_score) >= 0.1 and  float(cvss_score) < 4.0:
+        severity = "Low"
+    elif float(cvss_score) >= 4.0 and  float(cvss_score) < 7.0:
+        severity = "Medium"
+    elif float(cvss_score) >= 7.0 and  float(cvss_score) < 9.0:
+        severity = "High"
+    elif float(cvss_score) >= 9.0:
+        severity = "Critical"
+    
+    return severity
 
 
 with open("sca-results.json", "r") as r:
     results_json = json.load(r)
     results = results_json['records']
-    
-    fileName = ""
-    packageManager = ""
 
     for findings in results:
-        if 'graphs' in findings:
-            for i in findings['graphs']:
-                #Find the package manager
-                packageManager = isNoneCheck(i['directs'][0]['coords']['coordinateType'], "Package Manager not found.")
-                #Find filename in the report
-                fileName = isNoneCheck(i['directs'][0]['filename'], "File not found.")
-        else:
-            print("No Graphs available")
-
-        # Adding libraries to the dependency files
-        if 'libraries' in findings:
-            for library in findings['libraries']:
-                if len(library['versions'][0]['licenses']) != 0:
-                    direct = library['versions'][0]['licenses'][0]['fromParentPom']
+        if findings['graphs']:
+            package_manager = findings['graphs'][0]['directs'][0]['coords']['coordinateType'] if findings['graphs'][0]['directs'][0]['coords']['coordinateType'] else "Package Manager not found."
+            file_name = findings['graphs'][0]['directs'][0]['filename'] if findings['graphs'][0]['directs'][0]['filename'] else "File not found."
+        else: 
+            print('No graph results')
+            package_manager = ""
+            file_name = ""
+        
+        if findings['libraries']:
+            '''
+            Loops through the libraries in the report and appends them to Gitlabs
+            report with the appropriate information. This piece is what populates the 
+            Dependency list feature in gitlab.
+            
+            '''
+            for single_library in findings['libraries']:
+                coordinate_one = single_library['coordinate1']
+                coordinate_two = single_library['coordinate2']
+                library_current_version = single_library['versions'][0]['version']
+                library_iid = single_library
+                if len(single_library['versions'][0]['licenses']) != 0:
+                    direct_or_transitive_status = single_library['versions'][0]['licenses'][0]['fromParentPom']
                 else:
-                    direct = False
-
-                #Add to the Dependency list
+                    direct_or_transitive_status = False #defaulting to false, false being transitive.
+                
                 gl_results["dependency_files"].append({
-                    "path": fileName,
-                    "package_manager": packageManager,
-                    "dependencies": [
-                        {
-                            "package": {
-                                "name": library['coordinate1'] + ":" + library['coordinate2']
-                            },
-                            "version": library['versions'][0]['version'],
-                            "iid": findings['libraries'].index(library),
-                            "direct": direct
-                        }
-                    ]
-                })
-        else:
-            print("No libraries found")
+                            "path": file_name,
+                            "package_manager": package_manager,
+                            "dependencies": [
+                                {
+                                    "package": {
+                                        "name": coordinate_one + ":" + coordinate_two
+                                    },
+                                    "version": library_current_version,
+                                    "iid": library_iid,
+                                    "direct": direct_or_transitive_status
+                                }
+                            ]
+                        })
 
-        #Find the vulnerabilities and build the json doc
-        if 'vulnerabilities' in findings:
+
+        else:
+            print('No libraries found in the report.')
+
+        if findings['vulnerabilities']:
+            '''
+            Loops through the vulnerabilities in the report and appends them to Gitlabs
+            report with the appropriate information. This also generates a report 
+            
+            '''
             print("===== SCA SCAN HAS FOUND VULNERABILITIES =====")
             for issue in findings['vulnerabilities']:
-                
-                #Add CVE to the actual number from the report
-                if issue['cve'] is not None:
-                    cve = "CVE-" + issue['cve']
-                else:
-                    cve = "No CVE found"
-                
-                #Translate the CVSS score to Gitlabs severity.
-                if float(issue['cvssScore']) == 0.0:
-                    severity = "Info"
-                elif float(issue['cvssScore']) >= 0.1 and  float(issue['cvssScore']) < 4.0:
-                    severity = "Low"
-                elif float(issue['cvssScore']) >= 4.0 and  float(issue['cvssScore']) < 7.0:
-                    severity = "Medium"
-                elif float(issue['cvssScore']) >= 7.0 and  float(issue['cvssScore']) < 9.0:
-                    severity = "High"
-                elif float(issue['cvssScore']) >= 9.0:
-                    severity = "Critical"
-
+                '''
+                    In some cases there's no library information in the vulnerability. 
+                    This handles that case and defines generic variables.
+                '''
                 if len(issue['libraries']) != 0:
-                    #Map the vulnerability to the library
+                    '''
+                        Mapping vulnerability to the library
+                        TODO: ensure the correct vulnerability is being reported. 
+                        Seems to be an issue where some are incorrect.
+                    '''
                     ref = issue['libraries'][0]['_links']['ref']
                     new_ref = ref.split('/')
-                    library = int(new_ref[4]) - 1
+                    library_index = int(new_ref[4]) - 1 #remove this -1
+                    print(library_index)
                     
-                    #Assign variables that would've been in library
-                    versionRange = issue['libraries'][0]['details'][0]['versionRange']
-                    
-                    #Checks there's no empty values
-                    patchUrl = isNoneNullCheck(issue['libraries'][0]['details'][0]['patch'], 'https://www.sourceclear.com')
-                    refUrl = isNoneNullCheck(issue['_links']['html'], 'https://www.sourceclear.com')
+                    # Assign variables that require a library information in the vulnerability.
+                    library_sha = findings['libraries'][library_index]['versions'][0]['sha1']
+                    issue_message = issue['title'] + " in " + findings['libraries'][library_index]['name']
+                    library_current_version = findings['libraries'][library_index]['versions'][0]['version']
+                    coordinate_one = findings['libraries'][library_index]['coordinate1']
+                    coordinate_two = findings['libraries'][library_index]['coordinate2']                    
+                    patch_url = is_none_or_null_check(issue['libraries'][0]['details'][0]['patch'], 'https://www.sourceclear.com')
+                    reference_url = is_none_or_null_check(issue['_links']['html'], 'https://www.sourceclear.com')
+                    bug_tracker_url = is_none_or_null_check(findings['libraries'][library_index]['bugTrackerUrl'], 'https://www.sourceclear.com')
 
-                    #Upgrade version text for the report based on inputs.
-                    if issue['libraries'][0]['details'][0]['updateToVersion'] is not None:
-                        updateVersion = "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + "."
+                    if len(findings['libraries'][library_index]['versions'][0]['licenses']) != 0:
+                        direct_or_transitive_status = findings['libraries'][library_index]['versions'][0]['licenses'][0]['fromParentPom']
                     else:
-                        updateVersion = "Unknown"
-                    
-                else:
-                    #Defaults if no Library information is available.
-                    versionRange = 'Version Range Not Available'
-                    patchUrl = 'https://www.sourceclear.com'
-                    refUrl = 'https://www.sourceclear.com'
-                
-                #Covers any cases where the bugTrackerUrl is null, which breaks the schema
-                bugTrackerUrl = isNoneCheck(findings['libraries'][library]['bugTrackerUrl'], 'https://www.sourceclear.com')
+                        direct_or_transitive_status = False #defaulting to false, false being transitive.
 
-                #Add the results to new JSON format
+                    # Upgrade version text for the report based on inputs.
+                    if issue['libraries'][0]['details'][0]['updateToVersion']:
+                        update_version = "Upgrade to version " + issue['libraries'][0]['details'][0]['updateToVersion'] + "."
+                    elif issue['libraries'][0]['details'][0]['fixText'] != "":
+                        update_version = issue['libraries'][0]['details'][0]['fixText']
+                    else:
+                        update_version = "No update version provided."
+                else:
+                    # Providing defaults if no Library information is available. Typically not the case.
+                    library_sha = library_index = ""
+                    issue_message = issue['title']
+                    library_current_version = "No library information found in the report for this issue."
+                    coordinate_one = coordinate_two = "null"
+                    patch_url = reference_url = bug_tracker_url = 'https://www.sourceclear.com'
+
+                description = issue['overview']
+                cve = "CVE-" + issue['cve'] if issue['cve'] else "CVE-0000-0000"
+                
+                # Add the vulnerabilities to the gitlab report.
                 gl_results["vulnerabilities"].append({
-                    "id": findings['libraries'][library]['versions'][0]['sha1'],
+                    "id": library_sha,
                     "category": "dependency_scanning",
-                    "name": issue['title'] + " in " + findings['libraries'][library]['name'],
-                    "message": issue['title'] + " in " + findings['libraries'][library]['name'],
-                    "description": cve + ". " + issue['overview'],
-                    "severity": severity,
-                    "solution": updateVersion,
+                    "name": issue_message,
+                    "message": issue_message,
+                    "description": description,
+                    "cve": library_sha,
+                    "severity": severity_level(issue['cvssScore']),
+                    "solution": update_version,
                     "scanner": {
                         "id": "srcclr",
                         "name": "SourceClear"
                     },
                     "location": {
-                        "file": fileName,
+                        "file": file_name,
                         "dependency": {
                             "package": {
-                                "name": findings['libraries'][library]['coordinate1'] + ":" + findings['libraries'][library]['coordinate2']
+                                "name": coordinate_one + ":" + coordinate_two
                             },
-                            "version": findings['libraries'][library]['versions'][0]['version'],
-                            "iid": library,
-                            "direct": direct
+                            "version": library_current_version,
+                            "iid": library_index,
+                            "direct": direct_or_transitive_status
                         }
                     },
                     "identifiers": [
                         {
-                            "type": "Veracode Agent Based SCA",
-                            "name": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + versionRange + ' - ' + cve,
-                            "value": findings['libraries'][library]['language'] +  ' - ' + findings['libraries'][library]['name'] + ' - VERSIONS: ' + versionRange + ' - ' + cve,
-                            "url": bugTrackerUrl
+                            "type": "cve",
+                            "name": cve,
+                            "value": cve,
+                            "url": bug_tracker_url
                         }
                     ],
                     "links": [
                         {
-                            "url": patchUrl
+                            "url": patch_url
                         },
                         {
-                            "url": refUrl
+                            "url": reference_url
                         }
                     ]
                 })
 
-                #Add remediations
+                # Add remediations to the report
                 gl_results["remediations"].append({
                     "fixes": [
                         {
-                            "id": findings['libraries'][library]['versions'][0]['sha1'],
+                            "cve": library_sha,
                         }
                     ],
-                    "summary": updateVersion,
+                    "summary": update_version,
                     "diff": "Information not available."
                 })
 
-                # Output results on the console. 
-                print("ISSUE FOUND: " + issue['title'] + " in " + findings['libraries'][library]['name'])
+                # Output results on the console.
+                if  library_index != "null":
+                    print("ISSUE FOUND: " + issue_message)
+                else:
+                    print("ISSUE FOUND: " + issue['title'])
         else: 
             print("There are no vulnerabilities")
 
 
-        #If there's any unmatched libraries in the report. Print those results for teams to see.
-        if 'unmatchedLibraries' in findings:
-            print("\n")
-            print("===== SCA SCAN HAS FOUND SOME UNMATCHED LIBRARIES =====")
-            print("ACTION REQUIRED: Please add a version to the following libraries to get results.")
-            for library in findings['unmatchedLibraries']:
-                print("- " + library['coordinate1'] + ":" + library['coordinate2'])
+    '''
+        In some cases there are unmatched libraries in the report. 
+        This essentially outputs any libraries where the scanner couldn't resolve the version of the library.
+    '''
+    if 'unmatchedLibraries' in findings and len(findings['unmatchedLibraries']) != 0:
+        print("")
+        print("")
+        print("===== SCA SCAN HAS FOUND SOME UNMATCHED LIBRARIES =====")
+        print("ACTION REQUIRED: Please add a version to the following libraries to get results.")
+        for unmatched_library in findings['unmatchedLibraries']:
+            coordinate_one = unmatched_library['coordinate1'] if unmatched_library['coordinate1'] else "null"
+            coordinate_two = unmatched_library['coordinate2'] if unmatched_library['coordinate2'] else "null"
+            print("- " + coordinate_one + ":" + coordinate_two)
+        print("")
 
-        else:
-            print("No unmatched libraries identified.")
 
-
-with open("srcclr-report.json", "w") as f:
+with open("gl-dependancy-scan-report.json", "w") as f:
     f.write(json.dumps(gl_results, indent=4))
