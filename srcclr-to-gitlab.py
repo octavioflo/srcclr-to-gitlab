@@ -53,11 +53,12 @@ with open("sca-results.json", "r") as r:
             Dependency list feature in gitlab.
             
             '''
+            single_library_index = 0
             for single_library in findings['libraries']:
                 coordinate_one = single_library['coordinate1']
                 coordinate_two = single_library['coordinate2']
                 library_current_version = single_library['versions'][0]['version']
-                library_iid = single_library
+                library_iid = single_library_index
                 if len(single_library['versions'][0]['licenses']) != 0:
                     direct_or_transitive_status = single_library['versions'][0]['licenses'][0]['fromParentPom']
                 else:
@@ -77,6 +78,7 @@ with open("sca-results.json", "r") as r:
                                 }
                             ]
                         })
+                single_library_index += 1
 
 
         else:
@@ -97,13 +99,11 @@ with open("sca-results.json", "r") as r:
                 if len(issue['libraries']) != 0:
                     '''
                         Mapping vulnerability to the library
-                        TODO: ensure the correct vulnerability is being reported. 
                         Seems to be an issue where some are incorrect.
                     '''
                     ref = issue['libraries'][0]['_links']['ref']
                     new_ref = ref.split('/')
-                    library_index = int(new_ref[4]) - 1 #remove this -1
-                    print(library_index)
+                    library_index = int(new_ref[4])
                     
                     # Assign variables that require a library information in the vulnerability.
                     library_sha = findings['libraries'][library_index]['versions'][0]['sha1']
